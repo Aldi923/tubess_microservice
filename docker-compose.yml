@@ -1,0 +1,179 @@
+services:
+  mysql-db:
+    build: ./database
+    container_name: travel-mysql-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: travel_microservice
+    ports:
+      - "3306:3306"
+    networks:
+      - travel-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  gateway:
+    build: ./gateway
+    container_name: travel-gateway
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - JWT_SECRET=supersecretkey
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - USER_SERVICE_URL=http://user-service:3002
+      - DESTINATION_SERVICE_URL=http://destination-service:3003
+      - BOOKING_SERVICE_URL=http://booking-service:3004
+      - PAYMENT_SERVICE_URL=http://payment-service:3005
+      - RECOMMENDATION_SERVICE_URL=http://recommendation-service:5001
+      - NOTIFICATION_SERVICE_URL=http://notification-service:5002
+    depends_on:
+      - auth-service
+      - user-service
+      - destination-service
+      - booking-service
+      - payment-service
+      - recommendation-service
+      - notification-service
+    networks:
+      - travel-network
+
+  auth-service:
+    build: ./services/auth-service
+    container_name: travel-auth-service
+    restart: always
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - JWT_SECRET=supersecretkey
+      - DB_HOST=mysql-db
+      - DB_USER=root
+      - DB_PASSWORD=rootpassword
+      - DB_NAME=travel_microservice
+      - DB_PORT=3306
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    networks:
+      - travel-network
+
+  user-service:
+    build: ./services/user-service
+    container_name: travel-user-service
+    restart: always
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - DB_HOST=mysql-db
+      - DB_USER=root
+      - DB_PASSWORD=rootpassword
+      - DB_NAME=travel_microservice
+      - DB_PORT=3306
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    networks:
+      - travel-network
+
+  destination-service:
+    build: ./services/destination-service
+    container_name: travel-destination-service
+    restart: always
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      - DB_HOST=mysql-db
+      - DB_USER=root
+      - DB_PASSWORD=rootpassword
+      - DB_NAME=travel_microservice
+      - DB_PORT=3306
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    networks:
+      - travel-network
+
+  booking-service:
+    build: ./services/booking-service
+    container_name: travel-booking-service
+    restart: always
+    ports:
+      - "3004:3004"
+    environment:
+      - PORT=3004
+      - DB_HOST=mysql-db
+      - DB_USER=root
+      - DB_PASSWORD=rootpassword
+      - DB_NAME=travel_microservice
+      - DB_PORT=3306
+      - DESTINATION_SERVICE_INTERNAL_URL=http://destination-service:3003
+      - USER_SERVICE_INTERNAL_URL=http://user-service:3002
+      - NOTIFICATION_SERVICE_INTERNAL_URL=http://notification-service:5002
+      - PAYMENT_SERVICE_INTERNAL_URL=http://payment-service:3005
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    networks:
+      - travel-network
+
+  payment-service:
+    build: ./services/payment-service
+    container_name: travel-payment-service
+    restart: always
+    ports:
+      - "3005:3005"
+    environment:
+      - PORT=3005
+      - DB_HOST=mysql-db
+      - DB_USER=root
+      - DB_PASSWORD=rootpassword
+      - DB_NAME=travel_microservice
+      - DB_PORT=3306
+      - NOTIFICATION_SERVICE_INTERNAL_URL=http://notification-service:5002
+      - MIDTRANS_SERVER_KEY=your_midtrans_server_key_here
+      - MIDTRANS_CLIENT_KEY=your_midtrans_client_key_here
+      - MIDTRANS_IS_PRODUCTION=false
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    networks:
+      - travel-network
+
+  recommendation-service:
+    build: ./services/recommendation-service
+    container_name: travel-recommendation-service
+    restart: always
+    ports:
+      - "5001:5001"
+    environment:
+      - DB_HOST=mysql-db
+      - DB_USER=root
+      - DB_PASSWORD=rootpassword
+      - DB_NAME=travel_microservice
+      - DB_PORT=3306
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    networks:
+      - travel-network
+
+  notification-service:
+    build: ./services/notification-service
+    container_name: travel-notification-service
+    restart: always
+    ports:
+      - "5002:5002"
+    networks:
+      - travel-network
+
+networks:
+  travel-network:
+    driver: bridge
